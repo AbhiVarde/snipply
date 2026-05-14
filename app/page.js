@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Toaster, toast } from "sonner";
+import { supabase } from "@/lib/supabase";
 
 const DEFAULT = `function Hero() {
   return (
@@ -42,7 +44,6 @@ function buildDoc(code) {
       .replace(/export\s+default\s+/, "");
     const js = Babel.transform(clean, { presets: ["react"] }).code;
     const name = code.match(/function\s+([A-Z]\w*)/)?.[1] ?? "App";
-
     return `<!DOCTYPE html><html><head>
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -82,9 +83,26 @@ export default function Page() {
   const [doc, setDoc] = useState(() => buildDoc(DEFAULT));
   const [sel, setSel] = useState(null);
   const [cid, setCid] = useState(null);
-  const [status, setStatus] = useState("");
+  const [userId, setUserId] = useState(null);
+  const [ownerId, setOwnerId] = useState(null);
   const [tab, setTab] = useState("editor");
+  const [title, setTitle] = useState("Untitled");
   const iframe = useRef(null);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (session?.user) {
+        setUserId(session.user.id);
+      } else {
+        const { data, error } = await supabase.auth.signInAnonymously();
+        if (error) {
+          toast.error("Auth failed: " + error.message);
+        } else {
+          setUserId(data.user.id);
+        }
+      }
+    });
+  }, []);
 
   useEffect(() => {
     const fn = (e) => e.data?.type === "selected" && setSel(e.data);
@@ -106,32 +124,99 @@ export default function Page() {
     setTab("preview");
   };
 
+  const isOwner = !ownerId || ownerId === userId;
+
   const save = async () => {
-    setStatus("saving");
-    const res = cid
-      ? await fetch(`/api/component/${cid}`, {
+    if (!userId) {
+      toast.error("Still loading auth, try again in a second");
+      return;
+    }
+
+    const saving = toast.loading(cid && isOwner ? "Updating..." : "Saving...");
+
+    try {
+      if (cid && isOwner) {
+        const res = await fetch(`/api/component/${cid}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ code }),
-        })
-      : await fetch("/api/component", {
+          body: JSON.stringify({ code, title, author_id: userId }),
+        });
+        const json = await res.json();
+        if (json.error) throw new Error(json.error);
+        toast.success("Updated!", { id: saving });
+      } else {
+        const res = await fetch("/api/component", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ code }),
+          body: JSON.stringify({
+            code,
+            title,
+            author_id: userId,
+            forked_from: cid || null,
+          }),
         });
-    if (!cid) setCid((await res.json()).id);
-    setStatus("saved");
-    setTimeout(() => setStatus(""), 2000);
+        const json = await res.json();
+        if (json.error) throw new Error(json.error);
+        setCid(json.id);
+        setOwnerId(userId);
+        window.history.pushState({}, "", `/c/${json.id}`);
+        toast.success("Saved! Share link is ready.", { id: saving });
+      }
+    } catch (err) {
+      toast.error("Failed: " + err.message, { id: saving });
+    }
+  };
+
+  const fork = async () => {
+    if (!userId || !cid) return;
+    const forking = toast.loading("Forking...");
+    try {
+      const res = await fetch("/api/component", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code,
+          title: title + " (fork)",
+          author_id: userId,
+          forked_from: cid,
+        }),
+      });
+      const json = await res.json();
+      if (json.error) throw new Error(json.error);
+      setCid(json.id);
+      setOwnerId(userId);
+      setTitle(title + " (fork)");
+      window.history.pushState({}, "", `/c/${json.id}`);
+      toast.success("Forked! Now it's yours.", { id: forking });
+    } catch (err) {
+      toast.error("Fork failed: " + err.message, { id: forking });
+    }
+  };
+
+  const share = () => {
+    if (!cid) {
+      toast.error("Save first to get a share link");
+      return;
+    }
+    navigator.clipboard.writeText(`${window.location.origin}/c/${cid}`);
+    toast.success("Link copied to clipboard!");
   };
 
   return (
     <div className="flex flex-col h-screen bg-background text-foreground">
+      <Toaster position="top-center" richColors />
+
       <header className="flex items-center gap-3 px-4 py-2.5 border-b shrink-0">
-        <span className="font-semibold text-sm tracking-tight">Runable</span>
+        <span className="font-semibold text-sm tracking-tight">Snipply</span>
+        <Input
+          className="h-7 text-xs w-36 rounded-full border-dashed"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+        />
         {cid && (
           <Badge
             variant="secondary"
-            className="font-mono text-[10px] rounded-full"
+            className="font-mono text-[10px] rounded-full hidden sm:flex"
           >
             {cid.slice(0, 8)}
           </Badge>
@@ -148,13 +233,31 @@ export default function Page() {
           ))}
         </div>
         <div className="ml-auto flex gap-2">
+          {cid && !isOwner && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={fork}
+              className="rounded-full text-xs h-7 px-4"
+            >
+              Fork
+            </Button>
+          )}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={share}
+            className="rounded-full text-xs h-7 px-4"
+          >
+            Share
+          </Button>
           <Button
             size="sm"
             variant="outline"
             onClick={save}
             className="rounded-full text-xs h-7 px-4"
           >
-            {status === "saved" ? "Saved!" : "Save"}
+            {cid && isOwner ? "Update" : "Save"}
           </Button>
           <Button
             size="sm"
@@ -256,6 +359,20 @@ export default function Page() {
           </div>
         </div>
       </div>
+
+      <footer className="border-t px-4 py-2 shrink-0 flex items-center justify-center">
+        <p className="text-[11px] text-muted-foreground">
+          Built with Supabase · Next.js · shadcn/ui by{" "}
+          <a
+            href="https://abhivarde.in"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline underline-offset-2 hover:text-foreground transition-colors"
+          >
+            abhivarde.in
+          </a>
+        </p>
+      </footer>
     </div>
   );
 }
