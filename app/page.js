@@ -135,11 +135,23 @@ export default function Page() {
     const saving = toast.loading(cid && isOwner ? "Updating..." : "Saving...");
 
     try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error("Auth session not ready");
+      }
+
+      const authHeaders = {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.access_token}`,
+      };
+
       if (cid && isOwner) {
         const res = await fetch(`/api/component/${cid}`, {
           method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ code, title, author_id: userId }),
+          headers: authHeaders,
+          body: JSON.stringify({ code, title }),
         });
         const json = await res.json();
         if (json.error) throw new Error(json.error);
@@ -147,11 +159,10 @@ export default function Page() {
       } else {
         const res = await fetch("/api/component", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: authHeaders,
           body: JSON.stringify({
             code,
             title,
-            author_id: userId,
             forked_from: cid || null,
           }),
         });
@@ -171,13 +182,22 @@ export default function Page() {
     if (!userId || !cid) return;
     const forking = toast.loading("Forking...");
     try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error("Auth session not ready");
+      }
+
       const res = await fetch("/api/component", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
         body: JSON.stringify({
           code,
           title: title + " (fork)",
-          author_id: userId,
           forked_from: cid,
         }),
       });

@@ -1,18 +1,33 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-);
+function createRequestClient(req) {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    {
+      global: {
+        headers: {
+          Authorization: req.headers.get("authorization") ?? "",
+        },
+      },
+    },
+  );
+}
 
 export async function POST(req) {
   try {
-    const { code, title, author_id, forked_from } = await req.json();
+    const supabase = createRequestClient(req);
+    const { data: authData, error: authError } = await supabase.auth.getUser();
+    const { code, title, forked_from } = await req.json();
 
-    if (!code || !author_id) {
+    if (authError || !authData.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    if (!code) {
       return NextResponse.json(
-        { error: "Missing code or author_id" },
+        { error: "Missing code" },
         { status: 400 },
       );
     }
@@ -22,7 +37,7 @@ export async function POST(req) {
       .insert({
         code,
         title: title || "Untitled",
-        author_id,
+        author_id: authData.user.id,
         forked_from: forked_from || null,
       })
       .select("id")
