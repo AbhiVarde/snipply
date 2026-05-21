@@ -4,7 +4,6 @@ import { useState, useRef, useEffect } from "react";
 import * as Babel from "@babel/standalone";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Toaster, toast } from "sonner";
 import { supabase } from "@/lib/supabase";
@@ -78,6 +77,64 @@ document.addEventListener('click', e => {
   }
 }
 
+function CodeEditor({ value, onChange }) {
+  const textareaRef = useRef(null);
+  const gutterRef = useRef(null);
+  const lineCount = value.split("\n").length;
+
+  const syncScroll = () => {
+    if (gutterRef.current && textareaRef.current) {
+      gutterRef.current.scrollTop = textareaRef.current.scrollTop;
+    }
+  };
+
+  return (
+    <div className="flex flex-1 min-h-0 overflow-hidden font-mono text-[13px] leading-5.5">
+      <div
+        ref={gutterRef}
+        aria-hidden
+        className="select-none overflow-hidden shrink-0 bg-muted/40 border-r text-muted-foreground/60 text-right"
+        style={{ width: 40, paddingTop: 12, paddingBottom: 12 }}
+      >
+        {Array.from({ length: lineCount }, (_, i) => (
+          <div
+            key={i}
+            style={{
+              height: 22,
+              lineHeight: "22px",
+              paddingRight: 8,
+              fontSize: 11,
+            }}
+          >
+            {i + 1}
+          </div>
+        ))}
+      </div>
+
+      <textarea
+        ref={textareaRef}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onScroll={syncScroll}
+        spellCheck={false}
+        className="flex-1 min-w-0 resize-none border-0 outline-none focus:outline-none bg-background text-foreground"
+        style={{
+          padding: "12px 12px 12px 10px",
+          lineHeight: "22px",
+          whiteSpace: "pre-wrap",
+          wordBreak: "break-all",
+          overflowWrap: "break-word",
+          overflowX: "hidden",
+          overflowY: "auto",
+          tabSize: 2,
+          fontFamily: "inherit",
+          fontSize: "inherit",
+        }}
+      />
+    </div>
+  );
+}
+
 export default function Page() {
   const [code, setCode] = useState(DEFAULT);
   const [doc, setDoc] = useState(() => buildDoc(DEFAULT));
@@ -95,11 +152,8 @@ export default function Page() {
         setUserId(session.user.id);
       } else {
         const { data, error } = await supabase.auth.signInAnonymously();
-        if (error) {
-          toast.error("Auth failed: " + error.message);
-        } else {
-          setUserId(data.user.id);
-        }
+        if (error) toast.error("Auth failed: " + error.message);
+        else setUserId(data.user.id);
       }
     });
   }, []);
@@ -131,22 +185,16 @@ export default function Page() {
       toast.error("Still loading auth, try again in a second");
       return;
     }
-
     const saving = toast.loading(cid && isOwner ? "Updating..." : "Saving...");
-
     try {
       const {
         data: { session },
       } = await supabase.auth.getSession();
-      if (!session?.access_token) {
-        throw new Error("Auth session not ready");
-      }
-
+      if (!session?.access_token) throw new Error("Auth session not ready");
       const authHeaders = {
         "Content-Type": "application/json",
         Authorization: `Bearer ${session.access_token}`,
       };
-
       if (cid && isOwner) {
         const res = await fetch(`/api/component/${cid}`, {
           method: "PUT",
@@ -160,11 +208,7 @@ export default function Page() {
         const res = await fetch("/api/component", {
           method: "POST",
           headers: authHeaders,
-          body: JSON.stringify({
-            code,
-            title,
-            forked_from: cid || null,
-          }),
+          body: JSON.stringify({ code, title, forked_from: cid || null }),
         });
         const json = await res.json();
         if (json.error) throw new Error(json.error);
@@ -185,10 +229,7 @@ export default function Page() {
       const {
         data: { session },
       } = await supabase.auth.getSession();
-      if (!session?.access_token) {
-        throw new Error("Auth session not ready");
-      }
-
+      if (!session?.access_token) throw new Error("Auth session not ready");
       const res = await fetch("/api/component", {
         method: "POST",
         headers: {
@@ -226,89 +267,126 @@ export default function Page() {
     <div className="flex flex-col h-svh bg-background text-foreground overflow-hidden">
       <Toaster position="top-center" richColors />
 
-      <header className="flex items-center gap-2 px-3 py-2 border-b shrink-0 min-w-0">
-        <span className="font-semibold text-sm tracking-tight shrink-0">
-          Snipply
-        </span>
+      <header className="shrink-0 border-b bg-background">
+        <div className="flex items-center gap-2 px-3 pt-2 pb-1.5">
+          <span className="font-semibold text-sm tracking-tight shrink-0">
+            Snipply
+          </span>
 
-        <Input
-          className="h-7 text-xs w-24 sm:w-36 rounded-full border-dashed shrink-0"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-        />
+          <Input
+            className="h-7 text-xs rounded-full border-dashed w-28 sm:w-36 shrink-0"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+          />
 
-        {cid && (
-          <Badge
-            variant="secondary"
-            className="font-mono text-[10px] rounded-full hidden lg:flex shrink-0"
-          >
-            {cid.slice(0, 8)}
-          </Badge>
-        )}
-
-        <div className="flex gap-1 ml-1 sm:hidden shrink-0">
-          {["editor", "preview"].map((t) => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={`text-xs px-2.5 py-1 rounded-full font-medium transition-colors ${tab === t ? "bg-foreground text-background" : "text-muted-foreground"}`}
+          {cid && (
+            <Badge
+              variant="secondary"
+              className="font-mono text-[10px] rounded-full hidden lg:flex shrink-0"
             >
-              {t.charAt(0).toUpperCase() + t.slice(1)}
-            </button>
-          ))}
-        </div>
+              {cid.slice(0, 8)}
+            </Badge>
+          )}
 
-        <div className="ml-auto flex items-center gap-1.5 shrink-0">
-          {cid && !isOwner && (
+          <div className="ml-auto hidden sm:flex items-center gap-1.5">
+            {cid && !isOwner && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={fork}
+                className="rounded-full text-xs h-7 px-3"
+              >
+                Fork
+              </Button>
+            )}
             <Button
               size="sm"
               variant="outline"
-              onClick={fork}
+              onClick={share}
               className="rounded-full text-xs h-7 px-3"
             >
-              Fork
+              Share
             </Button>
-          )}
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={share}
-            className="rounded-full text-xs h-7 px-3"
-          >
-            Share
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={save}
-            className="rounded-full text-xs h-7 px-3"
-          >
-            {cid && isOwner ? "Update" : "Save"}
-          </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={save}
+              className="rounded-full text-xs h-7 px-3"
+            >
+              {cid && isOwner ? "Update" : "Save"}
+            </Button>
+          </div>
+
           <Button
             size="sm"
             onClick={run}
-            className="rounded-full text-xs h-7 px-3"
+            className="rounded-full text-xs h-7 px-3 ml-auto sm:ml-1.5"
           >
             Run
           </Button>
+        </div>
+
+        <div className="flex items-center gap-2 px-3 pb-2 sm:hidden">
+          <div className="flex gap-0.5 bg-muted rounded-full p-0.5">
+            {["editor", "preview"].map((t) => (
+              <button
+                key={t}
+                onClick={() => setTab(t)}
+                className={`text-xs px-3 py-1 rounded-full font-medium transition-colors ${
+                  tab === t
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground"
+                }`}
+              >
+                {t.charAt(0).toUpperCase() + t.slice(1)}
+              </button>
+            ))}
+          </div>
+
+          <div className="ml-auto flex items-center gap-1.5">
+            {cid && !isOwner && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={fork}
+                className="rounded-full text-xs h-7 px-3"
+              >
+                Fork
+              </Button>
+            )}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={share}
+              className="rounded-full text-xs h-7 px-3"
+            >
+              Share
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={save}
+              className="rounded-full text-xs h-7 px-3"
+            >
+              {cid && isOwner ? "Update" : "Save"}
+            </Button>
+          </div>
         </div>
       </header>
 
       <div className="flex flex-col sm:flex-row flex-1 min-h-0 overflow-hidden">
         <div
-          className={`flex-col sm:flex sm:w-1/2 sm:border-r min-h-0 ${tab === "editor" ? "flex flex-1" : "hidden"}`}
+          className={`flex-col sm:flex sm:w-1/2 sm:border-r min-h-0 ${
+            tab === "editor" ? "flex flex-1" : "hidden"
+          }`}
         >
-          <Textarea
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            className="flex-1 resize-none font-mono text-[13px] rounded-none border-0 focus-visible:ring-0 leading-relaxed"
-            spellCheck={false}
-          />
+          <CodeEditor value={code} onChange={setCode} />
         </div>
 
         <div
-          className={`flex-col sm:flex sm:w-1/2 min-h-0 overflow-hidden ${tab === "preview" ? "flex flex-1" : "hidden"}`}
+          className={`flex-col sm:flex sm:w-1/2 min-h-0 overflow-hidden ${
+            tab === "preview" ? "flex flex-1" : "hidden"
+          }`}
         >
           <iframe
             ref={iframe}
