@@ -223,42 +223,48 @@ export default function Page() {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-background text-foreground">
+    <div className="flex flex-col h-svh bg-background text-foreground overflow-hidden">
       <Toaster position="top-center" richColors />
 
-      <header className="flex items-center gap-3 px-4 py-2.5 border-b shrink-0">
-        <span className="font-semibold text-sm tracking-tight">Snipply</span>
+      <header className="flex items-center gap-2 px-3 py-2 border-b shrink-0 min-w-0">
+        <span className="font-semibold text-sm tracking-tight shrink-0">
+          Snipply
+        </span>
+
         <Input
-          className="h-7 text-xs w-36 rounded-full border-dashed"
+          className="h-7 text-xs w-24 sm:w-36 rounded-full border-dashed shrink-0"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
         />
+
         {cid && (
           <Badge
             variant="secondary"
-            className="font-mono text-[10px] rounded-full hidden sm:flex"
+            className="font-mono text-[10px] rounded-full hidden lg:flex shrink-0"
           >
             {cid.slice(0, 8)}
           </Badge>
         )}
-        <div className="md:hidden flex gap-1 ml-2">
+
+        <div className="flex gap-1 ml-1 sm:hidden shrink-0">
           {["editor", "preview"].map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`text-xs px-3 py-1 rounded-full font-medium transition-colors ${tab === t ? "bg-foreground text-background" : "text-muted-foreground"}`}
+              className={`text-xs px-2.5 py-1 rounded-full font-medium transition-colors ${tab === t ? "bg-foreground text-background" : "text-muted-foreground"}`}
             >
               {t.charAt(0).toUpperCase() + t.slice(1)}
             </button>
           ))}
         </div>
-        <div className="ml-auto flex gap-2">
+
+        <div className="ml-auto flex items-center gap-1.5 shrink-0">
           {cid && !isOwner && (
             <Button
               size="sm"
               variant="outline"
               onClick={fork}
-              className="rounded-full text-xs h-7 px-4"
+              className="rounded-full text-xs h-7 px-3"
             >
               Fork
             </Button>
@@ -267,7 +273,7 @@ export default function Page() {
             size="sm"
             variant="outline"
             onClick={share}
-            className="rounded-full text-xs h-7 px-4"
+            className="rounded-full text-xs h-7 px-3"
           >
             Share
           </Button>
@@ -275,23 +281,23 @@ export default function Page() {
             size="sm"
             variant="outline"
             onClick={save}
-            className="rounded-full text-xs h-7 px-4"
+            className="rounded-full text-xs h-7 px-3"
           >
             {cid && isOwner ? "Update" : "Save"}
           </Button>
           <Button
             size="sm"
             onClick={run}
-            className="rounded-full text-xs h-7 px-4"
+            className="rounded-full text-xs h-7 px-3"
           >
             Run
           </Button>
         </div>
       </header>
 
-      <div className="flex flex-col md:flex-row flex-1 min-h-0">
+      <div className="flex flex-col sm:flex-row flex-1 min-h-0 overflow-hidden">
         <div
-          className={`md:flex flex-col md:w-1/2 md:border-r min-h-0 ${tab === "editor" ? "flex flex-1" : "hidden"}`}
+          className={`flex-col sm:flex sm:w-1/2 sm:border-r min-h-0 ${tab === "editor" ? "flex flex-1" : "hidden"}`}
         >
           <Textarea
             value={code}
@@ -302,7 +308,7 @@ export default function Page() {
         </div>
 
         <div
-          className={`md:flex flex-col md:w-1/2 min-h-0 ${tab === "preview" ? "flex flex-1" : "hidden"}`}
+          className={`flex-col sm:flex sm:w-1/2 min-h-0 overflow-hidden ${tab === "preview" ? "flex flex-1" : "hidden"}`}
         >
           <iframe
             ref={iframe}
@@ -310,9 +316,10 @@ export default function Page() {
             className="flex-1 w-full border-0 min-h-0"
             sandbox="allow-scripts"
           />
-          <div className="border-t shrink-0 p-4">
+
+          <div className="border-t shrink-0 p-3">
             {sel ? (
-              <div className="space-y-3">
+              <div className="space-y-2.5">
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-medium text-muted-foreground">
                     Editing
@@ -324,7 +331,7 @@ export default function Page() {
                     {sel.tag}
                   </Badge>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 xs:grid-cols-3 sm:grid-cols-1 md:grid-cols-3 gap-2.5">
                   <div className="space-y-1.5">
                     <p className="text-[11px] text-muted-foreground">Text</p>
                     <Input
@@ -340,12 +347,12 @@ export default function Page() {
                     <div className="flex gap-1.5">
                       <input
                         type="color"
-                        className="h-8 w-9 rounded-lg border cursor-pointer p-0.5"
+                        className="h-8 w-9 rounded-lg border cursor-pointer p-0.5 shrink-0"
                         value={toHex(sel.color)}
                         onChange={(e) => patch("color", e.target.value)}
                       />
                       <Input
-                        className="h-8 text-xs font-mono rounded-lg"
+                        className="h-8 text-xs font-mono rounded-lg min-w-0"
                         value={toHex(sel.color)}
                         onChange={(e) => patch("color", e.target.value)}
                       />
@@ -358,12 +365,12 @@ export default function Page() {
                     <div className="flex gap-1.5">
                       <input
                         type="color"
-                        className="h-8 w-9 rounded-lg border cursor-pointer p-0.5"
+                        className="h-8 w-9 rounded-lg border cursor-pointer p-0.5 shrink-0"
                         value={toHex(sel.background)}
                         onChange={(e) => patch("background", e.target.value)}
                       />
                       <Input
-                        className="h-8 text-xs font-mono rounded-lg"
+                        className="h-8 text-xs font-mono rounded-lg min-w-0"
                         value={toHex(sel.background)}
                         onChange={(e) => patch("background", e.target.value)}
                       />
@@ -372,7 +379,7 @@ export default function Page() {
                 </div>
               </div>
             ) : (
-              <p className="text-xs text-muted-foreground text-center py-3">
+              <p className="text-xs text-muted-foreground text-center py-2">
                 Click any element in the preview to edit it
               </p>
             )}
@@ -381,7 +388,7 @@ export default function Page() {
       </div>
 
       <footer className="border-t px-4 py-2 shrink-0 flex items-center justify-center">
-        <p className="text-[11px] text-muted-foreground">
+        <p className="text-[11px] text-muted-foreground text-center">
           Built with Supabase · Next.js · shadcn/ui by{" "}
           <a
             href="https://abhivarde.in"
