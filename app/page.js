@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Toaster, toast } from "sonner";
 import { supabase } from "@/lib/supabase";
-import { saveLocal, getLocal } from "@/lib/db";
+import { saveLocal } from "@/lib/db";
 
 const DEFAULT = `function Hero() {
   return (
@@ -155,7 +155,7 @@ export default function Page() {
     };
     const down = () => {
       setOnline(false);
-      toast.warning("You're offline — saves go to local cache");
+      toast.warning("You're offline, saves go to local cache");
     };
     window.addEventListener("online", up);
     window.addEventListener("offline", down);
@@ -218,7 +218,7 @@ export default function Page() {
       setCid(localId);
       setOwnerId(userId);
       window.history.pushState({}, "", `/c/${localId}`);
-      toast.warning("Saved locally — will sync when back online");
+      toast.warning("Saved locally, will sync when back online");
       return;
     }
 
