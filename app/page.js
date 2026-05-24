@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Toaster, toast } from "sonner";
 import { supabase } from "@/lib/supabase";
+import { saveLocal, getLocal } from "@/lib/db";
 
 const DEFAULT = `function Hero() {
   return (
@@ -110,7 +111,6 @@ function CodeEditor({ value, onChange }) {
           </div>
         ))}
       </div>
-
       <textarea
         ref={textareaRef}
         value={value}
@@ -144,7 +144,26 @@ export default function Page() {
   const [ownerId, setOwnerId] = useState(null);
   const [tab, setTab] = useState("editor");
   const [title, setTitle] = useState("Untitled");
+  const [online, setOnline] = useState(true);
   const iframe = useRef(null);
+
+  useEffect(() => {
+    setOnline(navigator.onLine);
+    const up = () => {
+      setOnline(true);
+      toast.success("Back online");
+    };
+    const down = () => {
+      setOnline(false);
+      toast.warning("You're offline — saves go to local cache");
+    };
+    window.addEventListener("online", up);
+    window.addEventListener("offline", down);
+    return () => {
+      window.removeEventListener("online", up);
+      window.removeEventListener("offline", down);
+    };
+  }, []);
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
@@ -185,6 +204,24 @@ export default function Page() {
       toast.error("Still loading auth, try again in a second");
       return;
     }
+
+    if (!online) {
+      const localId = cid || crypto.randomUUID();
+      await saveLocal({
+        id: localId,
+        code,
+        title,
+        author_id: userId,
+        forked_from: null,
+        pending: true,
+      });
+      setCid(localId);
+      setOwnerId(userId);
+      window.history.pushState({}, "", `/c/${localId}`);
+      toast.warning("Saved locally — will sync when back online");
+      return;
+    }
+
     const saving = toast.loading(cid && isOwner ? "Updating..." : "Saving...");
     try {
       const {
@@ -195,6 +232,7 @@ export default function Page() {
         "Content-Type": "application/json",
         Authorization: `Bearer ${session.access_token}`,
       };
+
       if (cid && isOwner) {
         const res = await fetch(`/api/component/${cid}`, {
           method: "PUT",
@@ -203,6 +241,14 @@ export default function Page() {
         });
         const json = await res.json();
         if (json.error) throw new Error(json.error);
+        await saveLocal({
+          id: cid,
+          code,
+          title,
+          author_id: userId,
+          forked_from: null,
+          pending: false,
+        });
         toast.success("Updated!", { id: saving });
       } else {
         const res = await fetch("/api/component", {
@@ -212,6 +258,14 @@ export default function Page() {
         });
         const json = await res.json();
         if (json.error) throw new Error(json.error);
+        await saveLocal({
+          id: json.id,
+          code,
+          title,
+          author_id: userId,
+          forked_from: null,
+          pending: false,
+        });
         setCid(json.id);
         setOwnerId(userId);
         window.history.pushState({}, "", `/c/${json.id}`);
@@ -244,6 +298,14 @@ export default function Page() {
       });
       const json = await res.json();
       if (json.error) throw new Error(json.error);
+      await saveLocal({
+        id: json.id,
+        code,
+        title: title + " (fork)",
+        author_id: userId,
+        forked_from: cid,
+        pending: false,
+      });
       setCid(json.id);
       setOwnerId(userId);
       setTitle(title + " (fork)");
@@ -279,14 +341,28 @@ export default function Page() {
             onChange={(e) => setTitle(e.target.value)}
           />
 
-          {cid && (
-            <Badge
-              variant="secondary"
-              className="font-mono text-[10px] rounded-full hidden lg:flex shrink-0"
+          <div className="flex items-center gap-1.5">
+            {cid && (
+              <Badge
+                variant="secondary"
+                className="font-mono text-[10px] rounded-full hidden lg:flex shrink-0"
+              >
+                {cid.slice(0, 8)}
+              </Badge>
+            )}
+            <span
+              className={`hidden sm:flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                online
+                  ? "bg-green-500/10 text-green-600"
+                  : "bg-yellow-500/10 text-yellow-600"
+              }`}
             >
-              {cid.slice(0, 8)}
-            </Badge>
-          )}
+              <span
+                className={`w-1.5 h-1.5 rounded-full ${online ? "bg-green-500" : "bg-yellow-500"}`}
+              />
+              {online ? "Online" : "Offline"}
+            </span>
+          </div>
 
           <div className="ml-auto hidden sm:flex items-center gap-1.5">
             {cid && !isOwner && (
@@ -342,7 +418,6 @@ export default function Page() {
               </button>
             ))}
           </div>
-
           <div className="ml-auto flex items-center gap-1.5">
             {cid && !isOwner && (
               <Button
@@ -376,17 +451,13 @@ export default function Page() {
 
       <div className="flex flex-col sm:flex-row flex-1 min-h-0 overflow-hidden">
         <div
-          className={`flex-col sm:flex sm:w-1/2 sm:border-r min-h-0 ${
-            tab === "editor" ? "flex flex-1" : "hidden"
-          }`}
+          className={`flex-col sm:flex sm:w-1/2 sm:border-r min-h-0 ${tab === "editor" ? "flex flex-1" : "hidden"}`}
         >
           <CodeEditor value={code} onChange={setCode} />
         </div>
 
         <div
-          className={`flex-col sm:flex sm:w-1/2 min-h-0 overflow-hidden ${
-            tab === "preview" ? "flex flex-1" : "hidden"
-          }`}
+          className={`flex-col sm:flex sm:w-1/2 min-h-0 overflow-hidden ${tab === "preview" ? "flex flex-1" : "hidden"}`}
         >
           <iframe
             ref={iframe}
@@ -394,7 +465,6 @@ export default function Page() {
             className="flex-1 w-full border-0 min-h-0"
             sandbox="allow-scripts"
           />
-
           <div className="border-t shrink-0 p-3">
             {sel ? (
               <div className="space-y-2.5">
