@@ -370,7 +370,7 @@ export default function Page() {
                 size="sm"
                 variant="outline"
                 onClick={fork}
-                className="rounded-full text-xs h-7 px-3"
+                className="cursor-pointer rounded-full text-xs h-7 px-3"
               >
                 Fork
               </Button>
@@ -379,7 +379,7 @@ export default function Page() {
               size="sm"
               variant="outline"
               onClick={share}
-              className="rounded-full text-xs h-7 px-3"
+              className="cursor-pointer rounded-full text-xs h-7 px-3"
             >
               Share
             </Button>
@@ -387,7 +387,7 @@ export default function Page() {
               size="sm"
               variant="outline"
               onClick={save}
-              className="rounded-full text-xs h-7 px-3"
+              className="cursor-pointer rounded-full text-xs h-7 px-3"
             >
               {cid && isOwner ? "Update" : "Save"}
             </Button>
@@ -396,7 +396,7 @@ export default function Page() {
           <Button
             size="sm"
             onClick={run}
-            className="rounded-full text-xs h-7 px-3 ml-auto sm:ml-1.5"
+            className="cursor-pointer rounded-full text-xs h-7 px-3 ml-auto sm:ml-1.5"
           >
             Run
           </Button>
@@ -424,7 +424,7 @@ export default function Page() {
                 size="sm"
                 variant="outline"
                 onClick={fork}
-                className="rounded-full text-xs h-7 px-3"
+                className="cursor-pointer rounded-full text-xs h-7 px-3"
               >
                 Fork
               </Button>
@@ -433,7 +433,7 @@ export default function Page() {
               size="sm"
               variant="outline"
               onClick={share}
-              className="rounded-full text-xs h-7 px-3"
+              className="cursor-pointer rounded-full text-xs h-7 px-3"
             >
               Share
             </Button>
@@ -441,7 +441,7 @@ export default function Page() {
               size="sm"
               variant="outline"
               onClick={save}
-              className="rounded-full text-xs h-7 px-3"
+              className="cursor-pointer rounded-full text-xs h-7 px-3"
             >
               {cid && isOwner ? "Update" : "Save"}
             </Button>
